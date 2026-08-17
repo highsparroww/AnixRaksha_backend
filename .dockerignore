@@ -1,0 +1,9 @@
+.git
+.env
+.test-deps
+.pytest_cache
+__pycache__
+*.py[cod]
+*.log
+work
+outputs
