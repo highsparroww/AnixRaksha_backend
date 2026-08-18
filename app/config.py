@@ -9,7 +9,10 @@ class Settings(BaseSettings):
 
     JWT_SECRET: str = "dev-secret-change-me"
     JWT_ALGORITHM: str = "HS256"
-    JWT_EXPIRE_MINUTES: int = 60
+    JWT_EXPIRE_MINUTES: int = 15
+    REFRESH_TOKEN_EXPIRE_DAYS: int = 30
+    REFRESH_TOKEN_COOKIE_NAME: str = "refresh_token"
+    REFRESH_TOKEN_SECURE: bool = False
 
     ML_MODE: str = "mock"  # mock | external
     ML_SERVICE_URL: str = "http://localhost:8001/predict"

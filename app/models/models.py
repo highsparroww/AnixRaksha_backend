@@ -51,6 +51,7 @@ class User(Base):
 
     patient: Mapped["Patient | None"] = relationship(back_populates="user", uselist=False)
     doctor: Mapped["Doctor | None"] = relationship(back_populates="user", uselist=False)
+    sessions: Mapped[list["UserSession"]] = relationship(back_populates="user")
 
 
 class Patient(Base):
@@ -138,6 +139,8 @@ class Appointment(Base):
     )
     status: Mapped[str] = mapped_column(String(20), default=AppointmentStatus.BOOKED.value, nullable=False)
     reason: Mapped[str | None] = mapped_column(Text, nullable=True)
+    health_intake_id: Mapped[str | None] = mapped_column(UUID(as_uuid=False), ForeignKey("health_intakes.id"), nullable=True)
+    health_summary_snapshot: Mapped[dict | None] = mapped_column(JSONB, nullable=True)
     created_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), server_default=func.now())
     updated_at: Mapped[datetime] = mapped_column(
         DateTime(timezone=True), server_default=func.now(), onupdate=func.now()
@@ -157,6 +160,45 @@ class SymptomSubmission(Base):
     severity: Mapped[str | None] = mapped_column(String(20), nullable=True)
     notes: Mapped[str | None] = mapped_column(Text, nullable=True)
     created_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), server_default=func.now())
+
+
+class HealthIntake(Base):
+    __tablename__ = "health_intakes"
+
+    id: Mapped[str] = mapped_column(UUID(as_uuid=False), primary_key=True, default=gen_uuid)
+    patient_id: Mapped[str] = mapped_column(UUID(as_uuid=False), ForeignKey("patients.id"), index=True, nullable=False)
+    # Flexible structured state for forms, future NLP, and clinician-approved additions.
+    structured_data: Mapped[dict] = mapped_column(JSONB, nullable=False, default=dict)
+    summary: Mapped[str | None] = mapped_column(Text, nullable=True)
+    created_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), server_default=func.now())
+    updated_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), server_default=func.now(), onupdate=func.now())
+
+
+class HealthConversation(Base):
+    __tablename__ = "health_conversations"
+
+    id: Mapped[str] = mapped_column(UUID(as_uuid=False), primary_key=True, default=gen_uuid)
+    patient_id: Mapped[str] = mapped_column(UUID(as_uuid=False), ForeignKey("patients.id"), index=True, nullable=False)
+    health_intake_id: Mapped[str] = mapped_column(UUID(as_uuid=False), ForeignKey("health_intakes.id"), unique=True, nullable=False)
+    status: Mapped[str] = mapped_column(String(20), nullable=False, default="ACTIVE", index=True)
+    created_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), server_default=func.now())
+    updated_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), server_default=func.now(), onupdate=func.now())
+    # Deliberately no transcript or raw-message storage. Conversational state
+    # remains temporary in the client/future processor; only structured intake
+    # fields are persisted for clinical and ML workflows.
+
+
+class UserSession(Base):
+    __tablename__ = "user_sessions"
+
+    id: Mapped[str] = mapped_column(UUID(as_uuid=False), primary_key=True, default=gen_uuid)
+    user_id: Mapped[str] = mapped_column(UUID(as_uuid=False), ForeignKey("users.id"), index=True, nullable=False)
+    refresh_token_hash: Mapped[str] = mapped_column(String(64), unique=True, nullable=False)
+    created_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), server_default=func.now())
+    expires_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), nullable=False, index=True)
+    last_used_at: Mapped[datetime | None] = mapped_column(DateTime(timezone=True), nullable=True)
+    revoked_at: Mapped[datetime | None] = mapped_column(DateTime(timezone=True), nullable=True)
+    user: Mapped["User"] = relationship(back_populates="sessions")
 
 
 class Prediction(Base):

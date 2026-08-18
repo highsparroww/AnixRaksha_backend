@@ -7,6 +7,14 @@ class UserRole(str, enum.Enum):
     ADMIN = "ADMIN"
 
 
+class ConversationStatus(str, enum.Enum):
+    ACTIVE = "ACTIVE"
+    COMPLETED = "COMPLETED"
+    ARCHIVED = "ARCHIVED"
+
+
+
+
 class Gender(str, enum.Enum):
     MALE = "MALE"
     FEMALE = "FEMALE"

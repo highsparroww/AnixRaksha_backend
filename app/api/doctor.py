@@ -215,6 +215,7 @@ async def get_appointment_detail(
         status=appointment.status,
         reason=appointment.reason,
         created_at=appointment.created_at,
+        health_summary_shared=appointment.health_summary_snapshot is not None,
         patient_name=patient_user.full_name,
         patient_age=patient.age,
         patient_gender=patient.gender,
@@ -225,6 +226,7 @@ async def get_appointment_detail(
         patient_notes=latest_submission.notes if latest_submission else None,
         prediction=PredictionResponse.model_validate(latest_prediction) if latest_prediction else None,
         slot=SlotResponse.model_validate(slot) if slot else None,
+        health_summary_snapshot=appointment.health_summary_snapshot,
     )
     return Envelope(data=detail)
 

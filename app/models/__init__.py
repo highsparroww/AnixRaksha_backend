@@ -9,5 +9,8 @@ from app.models.models import (  # noqa: F401
     Patient,
     Prediction,
     SymptomSubmission,
+    HealthConversation,
+    HealthIntake,
+    UserSession,
     User,
 )

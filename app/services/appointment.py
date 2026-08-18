@@ -4,14 +4,15 @@ from sqlalchemy.ext.asyncio import AsyncSession
 
 from app.dependencies import AppError
 from app.models.enums import AppointmentStatus, NotificationType, SlotStatus
-from app.models.models import Appointment, Doctor, DoctorSlot, Patient, User
+from app.models.models import Appointment, Doctor, DoctorSlot, HealthIntake, Patient, User
 from app.services.notification import create_notification
 from app.realtime.websocket import publish_event
 from fastapi import status
 
 
 async def book_appointment(
-    db: AsyncSession, patient: Patient, doctor_id: str, slot_id: str, reason: str | None
+    db: AsyncSession, patient: Patient, doctor_id: str, slot_id: str, reason: str | None,
+    health_intake_id: str | None = None, share_health_summary: bool = False,
 ) -> Appointment:
     # Lock the slot row to avoid a race between two patients booking it at once.
     stmt = select(DoctorSlot).where(DoctorSlot.id == slot_id, DoctorSlot.doctor_id == doctor_id).with_for_update()
@@ -23,12 +24,25 @@ async def book_appointment(
         raise AppError(status.HTTP_409_CONFLICT, "SLOT_ALREADY_BOOKED", "This appointment slot is no longer available")
 
     slot.status = SlotStatus.BOOKED.value
+    intake = None
+    if health_intake_id:
+        intake = (await db.execute(select(HealthIntake).where(
+            HealthIntake.id == health_intake_id, HealthIntake.patient_id == patient.id
+        ))).scalar_one_or_none()
+        if not intake:
+            raise AppError(status.HTTP_404_NOT_FOUND, "HEALTH_INTAKE_NOT_FOUND", "Health intake not found")
+    snapshot = None
+    if share_health_summary and intake:
+        # Snapshot only patient-controlled structured content; never raw conversation messages.
+        snapshot = {"structured_data": intake.structured_data, "summary": intake.summary}
     appointment = Appointment(
         patient_id=patient.id,
         doctor_id=doctor_id,
         slot_id=slot_id,
         status=AppointmentStatus.BOOKED.value,
         reason=reason,
+        health_intake_id=intake.id if intake else None,
+        health_summary_snapshot=snapshot,
     )
     db.add(appointment)
     try:

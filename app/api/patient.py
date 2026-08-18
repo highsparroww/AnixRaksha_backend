@@ -8,8 +8,8 @@ from sqlalchemy.ext.asyncio import AsyncSession
 
 from app.database import get_db
 from app.dependencies import AppError, get_current_patient
-from app.models.enums import Disease, NotificationType, Symptom
-from app.models.models import Appointment, Clinic, Notification, OutbreakAlert, Patient, Prediction, SymptomSubmission, User
+from app.models.enums import ConversationStatus, Disease, NotificationType, Symptom
+from app.models.models import Appointment, Clinic, HealthConversation, HealthIntake, Notification, OutbreakAlert, Patient, Prediction, SymptomSubmission, User
 from app.schemas.schemas import (
     AppointmentCreateRequest,
     AppointmentResponse,
@@ -27,6 +27,10 @@ from app.schemas.schemas import (
     SymptomSuggestion,
     SymptomSuggestionsResponse,
     SymptomSubmitRequest,
+    ConversationCreateRequest,
+    HealthConversationDetailResponse,
+    HealthConversationResponse,
+    HealthIntakeUpdateRequest,
 )
 from app.services.appointment import book_appointment
 from app.services.geo import make_point
@@ -34,6 +38,70 @@ from app.services.notification import create_notification
 from app.services.surveillance import get_disease_activity, get_map_data, growth_percentage
 
 router = APIRouter(prefix="/api/v1/patient", tags=["patient"])
+
+
+async def _owned_conversation(db: AsyncSession, patient: Patient, conversation_id: str) -> HealthConversation:
+    conversation = (await db.execute(select(HealthConversation).where(
+        HealthConversation.id == conversation_id, HealthConversation.patient_id == patient.id
+    ))).scalar_one_or_none()
+    if not conversation:
+        raise AppError(status.HTTP_404_NOT_FOUND, "CONVERSATION_NOT_FOUND", "Health conversation not found")
+    return conversation
+
+
+async def _conversation_response(db: AsyncSession, conversation: HealthConversation) -> HealthConversationResponse:
+    intake = (await db.execute(select(HealthIntake).where(HealthIntake.id == conversation.health_intake_id))).scalar_one()
+    return HealthConversationResponse(
+        id=conversation.id, health_intake_id=conversation.health_intake_id, status=conversation.status,
+        created_at=conversation.created_at, updated_at=conversation.updated_at, health_intake=intake.structured_data,
+    )
+
+
+@router.post("/health-conversations", response_model=Envelope[HealthConversationResponse], status_code=status.HTTP_201_CREATED)
+async def create_health_conversation(payload: ConversationCreateRequest, db: AsyncSession = Depends(get_db), patient: Patient = Depends(get_current_patient)):
+    intake = HealthIntake(patient_id=patient.id, structured_data=payload.structured_data)
+    db.add(intake)
+    await db.flush()
+    conversation = HealthConversation(patient_id=patient.id, health_intake_id=intake.id)
+    db.add(conversation)
+    await db.commit()
+    await db.refresh(conversation)
+    return Envelope(data=await _conversation_response(db, conversation))
+
+
+@router.get("/health-conversations", response_model=Envelope[list[HealthConversationResponse]])
+async def list_health_conversations(db: AsyncSession = Depends(get_db), patient: Patient = Depends(get_current_patient)):
+    result = await db.execute(select(HealthConversation).where(HealthConversation.patient_id == patient.id).order_by(HealthConversation.updated_at.desc()))
+    return Envelope(data=[await _conversation_response(db, item) for item in result.scalars().all()])
+
+
+@router.get("/health-conversations/{conversation_id}", response_model=Envelope[HealthConversationDetailResponse])
+async def get_health_conversation(conversation_id: str, db: AsyncSession = Depends(get_db), patient: Patient = Depends(get_current_patient)):
+    conversation = await _owned_conversation(db, patient, conversation_id)
+    return Envelope(data=HealthConversationDetailResponse(**(await _conversation_response(db, conversation)).model_dump()))
+
+
+@router.patch("/health-conversations/{conversation_id}/intake", response_model=Envelope[HealthConversationResponse])
+async def update_health_intake(conversation_id: str, payload: HealthIntakeUpdateRequest, db: AsyncSession = Depends(get_db), patient: Patient = Depends(get_current_patient)):
+    conversation = await _owned_conversation(db, patient, conversation_id)
+    if conversation.status != ConversationStatus.ACTIVE.value:
+        raise AppError(status.HTTP_409_CONFLICT, "CONVERSATION_NOT_ACTIVE", "Conversation is not active")
+    intake = (await db.execute(select(HealthIntake).where(HealthIntake.id == conversation.health_intake_id))).scalar_one()
+    intake.structured_data = {**intake.structured_data, **payload.structured_data}
+    if payload.summary is not None:
+        intake.summary = payload.summary
+    await db.commit()
+    await db.refresh(conversation)
+    return Envelope(data=await _conversation_response(db, conversation))
+
+
+@router.post("/health-conversations/{conversation_id}/archive", response_model=Envelope[HealthConversationResponse])
+async def archive_health_conversation(conversation_id: str, db: AsyncSession = Depends(get_db), patient: Patient = Depends(get_current_patient)):
+    conversation = await _owned_conversation(db, patient, conversation_id)
+    conversation.status = ConversationStatus.ARCHIVED.value
+    await db.commit()
+    await db.refresh(conversation)
+    return Envelope(data=await _conversation_response(db, conversation))
 
 
 # This is intentionally a transparent UI-assist mapping. It does not alter
@@ -209,7 +277,7 @@ async def create_appointment(
     db: AsyncSession = Depends(get_db),
     patient: Patient = Depends(get_current_patient),
 ):
-    appointment = await book_appointment(db, patient, payload.doctor_id, payload.slot_id, payload.reason)
+    appointment = await book_appointment(db, patient, payload.doctor_id, payload.slot_id, payload.reason, payload.health_intake_id, payload.share_health_summary)
     await db.commit()
     await db.refresh(appointment)
     return Envelope(data=AppointmentResponse.model_validate(appointment))

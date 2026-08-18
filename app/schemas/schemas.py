@@ -17,6 +17,7 @@ from app.models.enums import (
     SlotStatus,
     Symptom,
     UserRole,
+    ConversationStatus,
 )
 
 # ---------- Generic envelope ----------
@@ -42,7 +43,7 @@ class RegisterRequest(BaseModel):
     role: UserRole
     full_name: str
     email: EmailStr
-    password: str = Field(min_length=6)
+    password: str = Field(min_length=8)
     phone: Optional[str] = None
     age: Optional[int] = None
     gender: Optional[Gender] = None
@@ -52,6 +53,12 @@ class RegisterRequest(BaseModel):
     specialization: Optional[str] = None
     license_number: Optional[str] = None
     clinic_id: Optional[str] = None
+
+    @model_validator(mode="after")
+    def validate_role_fields(self):
+        if self.role == UserRole.DOCTOR and not self.license_number:
+            raise ValueError("license_number is required for doctors")
+        return self
 
 
 class LoginRequest(BaseModel):
@@ -64,6 +71,10 @@ class TokenResponse(BaseModel):
     token_type: str = "bearer"
     role: UserRole
     user_id: str
+
+
+class RefreshRequest(BaseModel):
+    refresh_token: Optional[str] = None
 
 
 # ---------- Patient ----------
@@ -239,6 +250,8 @@ class AppointmentCreateRequest(BaseModel):
     doctor_id: str
     slot_id: str
     reason: Optional[str] = None
+    health_intake_id: Optional[str] = None
+    share_health_summary: bool = False
 
 
 class AppointmentResponse(BaseModel):
@@ -250,6 +263,7 @@ class AppointmentResponse(BaseModel):
     status: str
     reason: Optional[str] = None
     created_at: datetime
+    health_summary_shared: bool = False
 
 
 class AppointmentDetailResponse(AppointmentResponse):
@@ -263,6 +277,34 @@ class AppointmentDetailResponse(AppointmentResponse):
     patient_notes: Optional[str] = None
     prediction: Optional[PredictionResponse] = None
     slot: Optional[SlotResponse] = None
+    health_summary_snapshot: Optional[dict[str, Any]] = None
+
+
+# ---------- Health conversations ----------
+
+
+class ConversationCreateRequest(BaseModel):
+    structured_data: dict[str, Any] = Field(default_factory=dict)
+
+
+class HealthIntakeUpdateRequest(BaseModel):
+    """Structured fields extracted from temporary UI/AI state or entered manually."""
+    structured_data: dict[str, Any] = Field(default_factory=dict)
+    summary: Optional[str] = Field(default=None, max_length=5000)
+
+
+class HealthConversationResponse(BaseModel):
+    model_config = ConfigDict(from_attributes=True)
+    id: str
+    health_intake_id: str
+    status: ConversationStatus
+    created_at: datetime
+    updated_at: datetime
+    health_intake: dict[str, Any] = Field(default_factory=dict)
+
+
+class HealthConversationDetailResponse(HealthConversationResponse):
+    pass
 
 
 # ---------- Disease cases ----------

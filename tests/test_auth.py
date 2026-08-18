@@ -60,3 +60,17 @@ async def test_rbac_doctor_cannot_access_patient_routes(client):
     doctor = await register_doctor(client, email="rbac-doctor@test.dev")
     resp = await client.get("/api/v1/patient/me", headers=auth_headers(doctor["access_token"]))
     assert resp.status_code == 403
+
+
+@pytest.mark.asyncio
+async def test_refresh_token_rotates_and_logout_revokes_session(client):
+    registered = await register_patient(client, email="refresh@test.dev")
+    first = await client.post("/api/v1/auth/refresh")
+    assert first.status_code == 200, first.text
+    assert first.json()["data"]["access_token"]
+
+    # The client now holds the rotated cookie. Logging out revokes that session.
+    logout = await client.post("/api/v1/auth/logout")
+    assert logout.status_code == 200
+    expired = await client.post("/api/v1/auth/refresh")
+    assert expired.status_code == 401
