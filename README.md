@@ -5,6 +5,50 @@ early-warning API. Built as a hackathon prototype: one FastAPI application,
 PostgreSQL + PostGIS for geospatial data, Redis for realtime pub/sub, plain
 WebSockets for push — no Docker, no microservices, no message queues.
 
+## Use case
+
+WaterWatch helps patients, clinicians, and public-health users understand
+local water-borne disease activity without exposing individual patient
+locations or health records. A patient can record structured health concerns,
+find care, and receive locality-based risk alerts. A clinician can document
+clinically assessed cases—including walk-in patients without an account.
+
+Only **clinically confirmed** disease cases appear on the surveillance map.
+Predictions, symptom submissions, suspected cases, and probable cases are not
+presented as confirmed map cases.
+
+## Core workflow
+
+```text
+Patient
+  → enters symptoms / structured health intake
+  → receives educational prediction and care guidance
+  → may book a doctor appointment and opt in to sharing a structured snapshot
+
+Doctor / clinic
+  → assesses a patient, including registered and walk-in patients
+  → records a disease case with clinical status and reporting location
+  → confirmed case contributes to the coarse, privacy-preserving map
+
+Surveillance
+  → aggregates confirmed cases into approximately 2.2 km map cells
+  → measures recent case growth by disease and locality
+  → creates an outbreak alert when configured thresholds are met
+  → notifies registered patients whose saved location is within the alert area
+  → delivers in-app notifications and real-time WebSocket events
+```
+
+### Health-data privacy
+
+- Conversational UI state is temporary; the backend persists structured intake
+  fields, not a raw conversation transcript.
+- A doctor receives only an appointment-specific, patient-approved structured
+  health snapshot—not the patient’s full intake history.
+- Map and nearby-surveillance APIs return coarse aggregate data rather than
+  patient identities or exact locations.
+- A model prediction is educational and does not create a confirmed disease
+  case or alter map counts.
+
 ## Stack
 
 - Python 3.12, FastAPI, Uvicorn, Pydantic v2
