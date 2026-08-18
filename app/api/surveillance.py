@@ -8,7 +8,7 @@ from sqlalchemy.ext.asyncio import AsyncSession
 from app.database import get_db
 from app.dependencies import get_current_user
 from app.models.enums import Disease
-from app.models.models import OutbreakAlert
+from app.models.models import ForecastAssessment, OutbreakAlert
 from app.schemas.schemas import (
     DiseaseActivityResponse,
     Envelope,
@@ -16,10 +16,28 @@ from app.schemas.schemas import (
     MapResponse,
     NearbySurveillanceResponse,
     OutbreakAlertResponse,
+    ForecastMapCell,
+    ForecastMapResponse,
 )
 from app.services.surveillance import get_disease_activity, get_map_data, get_nearby_summary
 
 router = APIRouter(prefix="/api/v1/surveillance", tags=["surveillance"])
+
+
+@router.get("/forecast-map", response_model=Envelope[ForecastMapResponse])
+async def forecast_map(
+    db: AsyncSession = Depends(get_db), _user=Depends(get_current_user),
+):
+    """Separate anticipated-risk layer; never mixed into confirmed-case cells."""
+    now = datetime.now(timezone.utc)
+    forecasts = (await db.execute(select(ForecastAssessment).where(
+        ForecastAssessment.status == "ACTIVE", ForecastAssessment.forecast_end >= now
+    ).order_by(ForecastAssessment.created_at.desc()))).scalars().all()
+    return Envelope(data=ForecastMapResponse(forecasts=[ForecastMapCell(
+        id=item.id, disease=item.disease, latitude=item.latitude, longitude=item.longitude,
+        radius_km=item.radius_km, risk_level=item.risk_level, confidence=item.confidence,
+        explanation=item.explanation, forecast_start=item.forecast_start, forecast_end=item.forecast_end,
+    ) for item in forecasts]))
 
 
 @router.get("/nearby", response_model=Envelope[NearbySurveillanceResponse])

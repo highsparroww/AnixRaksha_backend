@@ -294,3 +294,38 @@ class EnvironmentalObservation(Base):
     raw_data: Mapped[dict] = mapped_column(JSONB, nullable=False)
     normalized_features: Mapped[dict] = mapped_column(JSONB, nullable=False)
     created_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), server_default=func.now())
+
+
+class SurveillanceSignal(Base):
+    __tablename__ = "surveillance_signals"
+
+    id: Mapped[str] = mapped_column(UUID(as_uuid=False), primary_key=True, default=gen_uuid)
+    signal_type: Mapped[str] = mapped_column(String(30), nullable=False, index=True)
+    disease: Mapped[str | None] = mapped_column(String(50), nullable=True, index=True)
+    source: Mapped[str] = mapped_column(String(100), nullable=False)
+    location: Mapped[str] = mapped_column(Geography(geometry_type="POINT", srid=4326), nullable=False)
+    latitude: Mapped[float] = mapped_column(Float, nullable=False)
+    longitude: Mapped[float] = mapped_column(Float, nullable=False)
+    observed_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), nullable=False, index=True)
+    data: Mapped[dict] = mapped_column(JSONB, nullable=False)
+    collected_by_user_id: Mapped[str] = mapped_column(UUID(as_uuid=False), ForeignKey("users.id"), nullable=False)
+    created_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), server_default=func.now())
+
+
+class ForecastAssessment(Base):
+    __tablename__ = "forecast_assessments"
+
+    id: Mapped[str] = mapped_column(UUID(as_uuid=False), primary_key=True, default=gen_uuid)
+    disease: Mapped[str] = mapped_column(String(50), nullable=False, index=True)
+    latitude: Mapped[float] = mapped_column(Float, nullable=False)
+    longitude: Mapped[float] = mapped_column(Float, nullable=False)
+    radius_km: Mapped[float] = mapped_column(Float, nullable=False)
+    risk_level: Mapped[str] = mapped_column(String(20), nullable=False)
+    confidence: Mapped[float] = mapped_column(Float, nullable=False)
+    model_version: Mapped[str] = mapped_column(String(100), nullable=False)
+    explanation: Mapped[dict] = mapped_column(JSONB, nullable=False)
+    evidence_context: Mapped[dict] = mapped_column(JSONB, nullable=False)
+    forecast_start: Mapped[datetime] = mapped_column(DateTime(timezone=True), nullable=False)
+    forecast_end: Mapped[datetime] = mapped_column(DateTime(timezone=True), nullable=False)
+    status: Mapped[str] = mapped_column(String(30), nullable=False, default="ACTIVE", index=True)
+    created_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), server_default=func.now())

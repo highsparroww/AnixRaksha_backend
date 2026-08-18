@@ -18,6 +18,7 @@ from app.models.enums import (
     Symptom,
     UserRole,
     ConversationStatus,
+    SurveillanceSignalType,
 )
 
 # ---------- Generic envelope ----------
@@ -213,6 +214,61 @@ class EnvironmentalDiseaseRiskResult(BaseModel):
     confidence: float = Field(ge=0, le=1)
     explanation: DiseaseRiskExplanation
     evaluated_at: datetime
+
+
+# ---------- Government forecasting foundation (no inference implementation) ----------
+
+
+class SurveillanceSignalCreateRequest(BaseModel):
+    signal_type: SurveillanceSignalType
+    source: str = Field(min_length=1, max_length=100)
+    latitude: float
+    longitude: float
+    observed_at: datetime
+    disease: Optional[Disease] = None
+    data: dict[str, Any] = Field(default_factory=dict)
+
+
+class SurveillanceSignalResponse(BaseModel):
+    model_config = ConfigDict(from_attributes=True)
+    id: str
+    signal_type: str
+    disease: Optional[str]
+    source: str
+    observed_at: datetime
+    created_at: datetime
+
+
+class ForecastAssessmentResponse(BaseModel):
+    model_config = ConfigDict(from_attributes=True)
+    id: str
+    disease: str
+    risk_level: str
+    confidence: float
+    model_version: str
+    explanation: dict[str, Any]
+    evidence_context: dict[str, Any]
+    forecast_start: datetime
+    forecast_end: datetime
+    status: str
+    created_at: datetime
+
+
+class ForecastMapCell(BaseModel):
+    id: str
+    disease: str
+    latitude: float
+    longitude: float
+    radius_km: float
+    risk_level: str
+    confidence: float
+    explanation: dict[str, Any]
+    forecast_start: datetime
+    forecast_end: datetime
+
+
+class ForecastMapResponse(BaseModel):
+    forecasts: list[ForecastMapCell]
 
 
 # ---------- Clinics ----------

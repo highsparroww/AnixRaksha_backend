@@ -5,6 +5,16 @@ class UserRole(str, enum.Enum):
     PATIENT = "PATIENT"
     DOCTOR = "DOCTOR"
     ADMIN = "ADMIN"
+    GOVERNMENT = "GOVERNMENT"
+
+
+class SurveillanceSignalType(str, enum.Enum):
+    SYMPTOM_AGGREGATE = "SYMPTOM_AGGREGATE"
+    WASTEWATER = "WASTEWATER"
+    ENVIRONMENTAL = "ENVIRONMENTAL"
+    LAB_SAMPLE = "LAB_SAMPLE"
+
+
 
 
 class ConversationStatus(str, enum.Enum):
@@ -104,4 +114,5 @@ class NotificationType(str, enum.Enum):
     SURVEILLANCE = "SURVEILLANCE"
     HEALTH = "HEALTH"
     ENVIRONMENTAL_RISK = "ENVIRONMENTAL_RISK"
+    FORECAST_ALERT = "FORECAST_ALERT"
     SYSTEM = "SYSTEM"
