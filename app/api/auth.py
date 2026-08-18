@@ -1,7 +1,7 @@
 from datetime import datetime, timedelta, timezone
 
 from fastapi import APIRouter, Cookie, Depends, Response, status
-from sqlalchemy import select
+from sqlalchemy import func, select
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from app.database import get_db
@@ -30,18 +30,19 @@ async def _create_session(db: AsyncSession, user: User) -> str:
 def _set_refresh_cookie(response: Response, token: str) -> None:
     response.set_cookie(
         settings.REFRESH_TOKEN_COOKIE_NAME, token, max_age=settings.REFRESH_TOKEN_EXPIRE_DAYS * 86400,
-        httponly=True, secure=settings.REFRESH_TOKEN_SECURE, samesite="lax", path="/api/v1/auth",
+        httponly=True, secure=settings.REFRESH_TOKEN_SECURE, samesite=settings.REFRESH_TOKEN_SAMESITE, path="/api/v1/auth",
     )
 
 
 @router.post("/register", response_model=Envelope[TokenResponse], status_code=status.HTTP_201_CREATED)
 async def register(payload: RegisterRequest, response: Response, db: AsyncSession = Depends(get_db)):
-    existing = await db.execute(select(User).where(User.email == payload.email))
+    email = str(payload.email).lower()
+    existing = await db.execute(select(User).where(func.lower(User.email) == email))
     if existing.scalar_one_or_none():
         raise AppError(status.HTTP_409_CONFLICT, "EMAIL_TAKEN", "An account with this email already exists")
 
     user = User(
-        email=payload.email,
+        email=email,
         hashed_password=hash_password(payload.password),
         role=payload.role.value,
         full_name=payload.full_name,
@@ -82,7 +83,8 @@ async def register(payload: RegisterRequest, response: Response, db: AsyncSessio
 
 @router.post("/login", response_model=Envelope[TokenResponse])
 async def login(payload: LoginRequest, response: Response, db: AsyncSession = Depends(get_db)):
-    result = await db.execute(select(User).where(User.email == payload.email))
+    email = str(payload.email).lower()
+    result = await db.execute(select(User).where(func.lower(User.email) == email))
     user = result.scalar_one_or_none()
     if not user or not user.is_active or not verify_password(payload.password, user.hashed_password):
         raise AppError(status.HTTP_401_UNAUTHORIZED, "INVALID_CREDENTIALS", "Invalid email or password")

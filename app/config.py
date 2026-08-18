@@ -12,7 +12,10 @@ class Settings(BaseSettings):
     JWT_EXPIRE_MINUTES: int = 15
     REFRESH_TOKEN_EXPIRE_DAYS: int = 30
     REFRESH_TOKEN_COOKIE_NAME: str = "refresh_token"
-    REFRESH_TOKEN_SECURE: bool = False
+    # Production browser clients hosted on another HTTPS origin require a
+    # cross-site, Secure refresh cookie. Override both to False/lax locally.
+    REFRESH_TOKEN_SECURE: bool = True
+    REFRESH_TOKEN_SAMESITE: str = "none"
 
     ML_MODE: str = "mock"  # mock | external
     ML_SERVICE_URL: str = "http://localhost:8001/predict"
