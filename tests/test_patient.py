@@ -65,6 +65,17 @@ async def test_prediction_history(client):
 
 
 @pytest.mark.asyncio
+async def test_symptom_suggestions_are_empty_without_local_activity(client):
+    patient = await register_patient(client, email="suggestions@test.dev", lat=26.4499, lon=80.3319)
+
+    resp = await client.get("/api/v1/patient/symptom-suggestions", headers=auth_headers(patient["access_token"]))
+    assert resp.status_code == 200
+    data = resp.json()["data"]
+    assert data["suggestions"] == []
+    assert "does not diagnose" in data["disclaimer"]
+
+
+@pytest.mark.asyncio
 async def test_dashboard_returns_full_shape(client):
     patient = await register_patient(client, email="dash@test.dev")
     headers = auth_headers(patient["access_token"])

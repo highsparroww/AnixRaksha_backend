@@ -129,6 +129,22 @@ class SymptomSubmitRequest(BaseModel):
     notes: Optional[str] = None
 
 
+class SymptomSuggestion(BaseModel):
+    """A UI hint informed by anonymous local surveillance, not a diagnosis."""
+
+    symptom: Symptom
+    related_diseases: list[Disease]
+    reason: str
+
+
+class SymptomSuggestionsResponse(BaseModel):
+    suggestions: list[SymptomSuggestion]
+    local_diseases: list[str]
+    disclaimer: str = (
+        "Suggestions reflect local public-health activity only. Select symptoms only if you are experiencing them; this does not diagnose a disease."
+    )
+
+
 class PredictionResponse(BaseModel):
     model_config = ConfigDict(from_attributes=True)
     id: str

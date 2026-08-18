@@ -8,8 +8,8 @@ from sqlalchemy.ext.asyncio import AsyncSession
 
 from app.database import get_db
 from app.dependencies import AppError, get_current_patient
-from app.models.enums import Disease, NotificationType
-from app.models.models import Appointment, Clinic, Notification, Patient, Prediction, SymptomSubmission, User
+from app.models.enums import Disease, NotificationType, Symptom
+from app.models.models import Appointment, Clinic, Notification, OutbreakAlert, Patient, Prediction, SymptomSubmission, User
 from app.schemas.schemas import (
     AppointmentCreateRequest,
     AppointmentResponse,
@@ -24,6 +24,8 @@ from app.schemas.schemas import (
     PatientProfile,
     PatientUpdateRequest,
     PredictionResponse,
+    SymptomSuggestion,
+    SymptomSuggestionsResponse,
     SymptomSubmitRequest,
 )
 from app.services.appointment import book_appointment
@@ -32,6 +34,19 @@ from app.services.notification import create_notification
 from app.services.surveillance import get_disease_activity, get_map_data, growth_percentage
 
 router = APIRouter(prefix="/api/v1/patient", tags=["patient"])
+
+
+# This is intentionally a transparent UI-assist mapping. It does not alter
+# prediction, create a disease case, or claim that a patient has a disease.
+_LOCAL_DISEASE_SYMPTOM_HINTS: dict[str, list[Symptom]] = {
+    Disease.CHOLERA.value: [Symptom.DIARRHEA, Symptom.VOMITING, Symptom.DEHYDRATION, Symptom.MUSCLE_CRAMPS],
+    Disease.TYPHOID.value: [Symptom.FEVER, Symptom.ABDOMINAL_PAIN, Symptom.HEADACHE, Symptom.WEAKNESS],
+    Disease.DYSENTERY.value: [Symptom.DIARRHEA, Symptom.BLOOD_IN_STOOL, Symptom.ABDOMINAL_PAIN],
+    Disease.HEPATITIS_A.value: [Symptom.NAUSEA, Symptom.WEAKNESS, Symptom.ABDOMINAL_PAIN, Symptom.FEVER],
+    Disease.HEPATITIS_E.value: [Symptom.NAUSEA, Symptom.WEAKNESS, Symptom.ABDOMINAL_PAIN, Symptom.FEVER],
+    Disease.ROTAVIRUS.value: [Symptom.DIARRHEA, Symptom.VOMITING, Symptom.FEVER, Symptom.DEHYDRATION],
+    Disease.OTHER_WATER_BORNE.value: [Symptom.DIARRHEA, Symptom.VOMITING, Symptom.NAUSEA, Symptom.FEVER],
+}
 
 
 async def _profile(db: AsyncSession, patient: Patient) -> PatientProfile:
@@ -75,6 +90,54 @@ async def update_me(
         patient.location = make_point(payload.latitude, payload.longitude)
     await db.commit()
     return Envelope(data=await _profile(db, patient))
+
+
+@router.get("/symptom-suggestions", response_model=Envelope[SymptomSuggestionsResponse])
+async def symptom_suggestions(
+    db: AsyncSession = Depends(get_db),
+    patient: Patient = Depends(get_current_patient),
+):
+    """Return optional symptom chips based on active nearby outbreak alerts
+    and rising local disease activity. Intended for a future chat intake UI."""
+    if patient.latitude is None or patient.longitude is None:
+        raise AppError(status.HTTP_422_UNPROCESSABLE_ENTITY, "NO_LOCATION", "Patient location is not set")
+
+    activity = await get_disease_activity(db, patient.latitude, patient.longitude, 10.0)
+    local_diseases: dict[str, str] = {}
+
+    center = make_point(patient.latitude, patient.longitude)
+    from geoalchemy2.functions import ST_DWithin
+
+    alert_result = await db.execute(
+        select(OutbreakAlert)
+        .where(ST_DWithin(OutbreakAlert.center_location, center, 10000))
+        .where(OutbreakAlert.expires_at > datetime.now(timezone.utc))
+        .order_by(OutbreakAlert.created_at.desc())
+    )
+    for alert in alert_result.scalars().all():
+        local_diseases[alert.disease] = "Active outbreak alert in your area"
+
+    for disease, growth in activity["per_disease_growth"].items():
+        if growth["growth_percentage"] >= 30 and disease not in local_diseases:
+            local_diseases[disease] = "Rising local disease activity"
+
+    by_symptom: dict[Symptom, dict[str, object]] = {}
+    for disease, reason in local_diseases.items():
+        for symptom in _LOCAL_DISEASE_SYMPTOM_HINTS.get(disease, []):
+            entry = by_symptom.setdefault(symptom, {"related_diseases": [], "reason": reason})
+            entry["related_diseases"].append(Disease(disease))
+            if reason.startswith("Active"):
+                entry["reason"] = reason
+
+    suggestions = [
+        SymptomSuggestion(
+            symptom=symptom,
+            related_diseases=entry["related_diseases"],
+            reason=entry["reason"],
+        )
+        for symptom, entry in by_symptom.items()
+    ]
+    return Envelope(data=SymptomSuggestionsResponse(suggestions=suggestions, local_diseases=list(local_diseases)))
 
 
 @router.post("/symptoms", response_model=Envelope[PredictionResponse], status_code=status.HTTP_201_CREATED)
