@@ -38,6 +38,7 @@ async def nearby_cases_query(
     disease: Optional[str] = None,
     since: Optional[datetime] = None,
     until: Optional[datetime] = None,
+    case_status: Optional[str] = None,
 ):
     center = make_point(latitude, longitude)
     radius_m = radius_km * 1000
@@ -48,6 +49,8 @@ async def nearby_cases_query(
         stmt = stmt.where(DiseaseCase.reported_at >= since)
     if until:
         stmt = stmt.where(DiseaseCase.reported_at < until)
+    if case_status:
+        stmt = stmt.where(DiseaseCase.case_status == case_status)
     stmt = stmt.order_by(ST_Distance(DiseaseCase.location, center))
     return stmt
 
@@ -59,11 +62,12 @@ async def get_nearby_cases(
     radius_km: float,
     disease: Optional[str] = None,
     time_window_days: Optional[int] = None,
+    case_status: Optional[str] = None,
 ) -> list[DiseaseCase]:
     since = None
     if time_window_days:
         since = datetime.now(timezone.utc) - timedelta(days=time_window_days)
-    stmt = await nearby_cases_query(db, latitude, longitude, radius_km, disease, since)
+    stmt = await nearby_cases_query(db, latitude, longitude, radius_km, disease, since, case_status=case_status)
     result = await db.execute(stmt)
     return list(result.scalars().all())
 
@@ -235,8 +239,11 @@ async def get_map_data(
     # seven days.  Only coarse cells leave this service.
     window_days = time_window_days or 7
     now = datetime.now(timezone.utc)
+    # Public map cells reflect clinically confirmed disease only. Suspected and
+    # probable reports remain available to authorised workflows as aggregate
+    # status data, but never inflate the public case heatmap.
     current_cases = await get_nearby_cases(
-        db, latitude, longitude, radius_km, disease, window_days
+        db, latitude, longitude, radius_km, disease, window_days, CaseStatus.CONFIRMED.value
     )
     previous_stmt = await nearby_cases_query(
         db,
@@ -246,6 +253,7 @@ async def get_map_data(
         disease,
         since=now - timedelta(days=window_days * 2),
         until=now - timedelta(days=window_days),
+        case_status=CaseStatus.CONFIRMED.value,
     )
     previous_cases = list((await db.execute(previous_stmt)).scalars().all())
 

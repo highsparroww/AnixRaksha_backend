@@ -87,6 +87,22 @@ async def test_map_aggregation_never_exposes_exact_case_location_fields(client):
 
 
 @pytest.mark.asyncio
+async def test_map_includes_confirmed_cases_only(client):
+    doctor = await register_doctor(client, email="confirmed-map-doc@test.dev")
+    headers = auth_headers(doctor["access_token"])
+    await _create_case(client, headers, status="CONFIRMED")
+    await _create_case(client, headers, status="SUSPECTED")
+
+    resp = await client.get(
+        "/api/v1/surveillance/map",
+        params={"latitude": CENTER[0], "longitude": CENTER[1], "radius_km": 10},
+        headers=headers,
+    )
+    assert resp.status_code == 200
+    assert sum(cell["case_count"] for cell in resp.json()["data"]["cells"]) == 1
+
+
+@pytest.mark.asyncio
 async def test_simulate_outbreak_triggers_alert(client):
     resp = await client.post(
         "/api/v1/dev/simulate-outbreak",
