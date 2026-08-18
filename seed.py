@@ -9,7 +9,7 @@ import asyncio
 import random
 from datetime import datetime, timedelta, timezone
 
-from app.database import AsyncSessionLocal, engine, Base
+from app.database import AsyncSessionLocal
 from app.models.enums import (
     AppointmentStatus,
     CaseSource,
@@ -27,11 +27,14 @@ from app.models.models import (
     Doctor,
     DoctorSlot,
     DiseaseCase,
+    HealthConversation,
+    HealthIntake,
     Notification,
     Patient,
     Prediction,
     SymptomSubmission,
     User,
+    UserSession,
 )
 from app.security import hash_password
 from app.services.geo import make_point
@@ -48,10 +51,13 @@ async def clear_all(session):
         SymptomSubmission,
         DiseaseCase,
         Appointment,
+        HealthConversation,
+        HealthIntake,
         DoctorSlot,
         Doctor,
         Patient,
         Clinic,
+        UserSession,
         User,
     ]:
         await session.execute(model.__table__.delete())
@@ -64,9 +70,6 @@ def jitter(lat, lon, km=2.0):
 
 
 async def seed():
-    async with engine.begin() as conn:
-        await conn.run_sync(Base.metadata.create_all)  # no-op if alembic already ran; safe if not
-
     async with AsyncSessionLocal() as session:
         await clear_all(session)
 
