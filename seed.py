@@ -27,9 +27,11 @@ from app.models.models import (
     Doctor,
     DoctorSlot,
     DiseaseCase,
+    ForecastAssessment,
     HealthConversation,
     HealthIntake,
     Notification,
+    OutbreakAlert,
     Patient,
     Prediction,
     SymptomSubmission,
@@ -47,6 +49,8 @@ CLUSTER_LAT, CLUSTER_LON = 26.47, 80.35  # ~3km away, inside a 10km alert radius
 async def clear_all(session):
     for model in [
         Notification,
+        OutbreakAlert,
+        ForecastAssessment,
         Prediction,
         SymptomSubmission,
         DiseaseCase,
@@ -287,6 +291,45 @@ async def seed():
         await session.flush()
 
         # ---------- Notifications ----------
+        # ---------- Active alerts and forecast risk (separate from observed cases) ----------
+        alert = OutbreakAlert(
+            disease=Disease.CHOLERA.value,
+            center_location=make_point(CLUSTER_LAT, CLUSTER_LON),
+            center_latitude=CLUSTER_LAT,
+            center_longitude=CLUSTER_LON,
+            radius_meters=5000,
+            severity="HIGH",
+            case_count=9,
+            growth_rate=125.0,
+            message="High cholera activity has been observed near Riverside Community Health Center.",
+            prevention_guidance=[
+                "Use boiled, filtered, or safely treated drinking water.",
+                "Wash hands with soap before eating and preparing food.",
+                "Seek medical care promptly for severe diarrhea, vomiting, or dehydration.",
+            ],
+            expires_at=datetime.now(timezone.utc) + timedelta(days=3),
+        )
+        session.add(alert)
+        forecasts = [
+            (Disease.CHOLERA.value, CLUSTER_LAT + 0.015, CLUSTER_LON + 0.02, 4.5, "HIGH", 0.84),
+            (Disease.TYPHOID.value, CITY_LAT - 0.025, CITY_LON - 0.015, 3.0, "ELEVATED", 0.71),
+        ]
+        for disease, lat, lon, radius_km, risk_level, confidence in forecasts:
+            session.add(ForecastAssessment(
+                disease=disease,
+                latitude=lat,
+                longitude=lon,
+                radius_km=radius_km,
+                risk_level=risk_level,
+                confidence=confidence,
+                model_version="demo-forecast-v1",
+                explanation={"summary": "Demo forecast based on recent anonymised surveillance patterns."},
+                evidence_context={"source": "seed_data", "observed_case_window_days": 7},
+                forecast_start=datetime.now(timezone.utc),
+                forecast_end=datetime.now(timezone.utc) + timedelta(days=5),
+                status="ACTIVE",
+            ))
+
         for patient in patients[:4]:
             notification = Notification(
                 user_id=patient.user_id,
@@ -297,6 +340,16 @@ async def seed():
                 is_read=random.choice([True, False]),
             )
             session.add(notification)
+
+        for patient in patients[:3]:
+            session.add(Notification(
+                user_id=patient.user_id,
+                type=NotificationType.OUTBREAK_ALERT.value,
+                title="High cholera activity near you",
+                message=alert.message,
+                data={"disease": alert.disease, "severity": alert.severity, "case_count": alert.case_count},
+                is_read=False,
+            ))
 
         await session.commit()
 
