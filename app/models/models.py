@@ -278,3 +278,19 @@ class Notification(Base):
     data: Mapped[dict | None] = mapped_column(JSONB, nullable=True)
     is_read: Mapped[bool] = mapped_column(Boolean, default=False, nullable=False)
     created_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), server_default=func.now())
+
+
+class EnvironmentalObservation(Base):
+    """Internal environmental-model input snapshot; never a patient-facing assessment."""
+
+    __tablename__ = "environmental_observations"
+
+    id: Mapped[str] = mapped_column(UUID(as_uuid=False), primary_key=True, default=gen_uuid)
+    source: Mapped[str] = mapped_column(String(100), nullable=False)
+    location: Mapped[str] = mapped_column(Geography(geometry_type="POINT", srid=4326), nullable=False)
+    latitude: Mapped[float] = mapped_column(Float, nullable=False)
+    longitude: Mapped[float] = mapped_column(Float, nullable=False)
+    observed_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), nullable=False, index=True)
+    raw_data: Mapped[dict] = mapped_column(JSONB, nullable=False)
+    normalized_features: Mapped[dict] = mapped_column(JSONB, nullable=False)
+    created_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), server_default=func.now())

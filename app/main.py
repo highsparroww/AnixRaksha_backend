@@ -5,20 +5,20 @@ from fastapi.exceptions import RequestValidationError
 from fastapi.middleware.cors import CORSMiddleware
 from fastapi.responses import JSONResponse
 
-from app.api import auth, clinics, dev, doctor, environmental_risk, health, notifications, patient, prediction, surveillance, ws
+from app.api import auth, clinics, dev, doctor, health, notifications, patient, prediction, surveillance, ws
 from app.config import settings
 from app.realtime.redis_bus import redis_bus
 from app.realtime.websocket import manager
 from app.services.prediction import prediction_registry
-from app.services.environmental_risk import environmental_risk_registry
+from app.services.environmental_pipeline import environmental_pipeline_registry
 
 
 @asynccontextmanager
 async def lifespan(app: FastAPI):
     await prediction_registry.startup()
     app.state.prediction_registry = prediction_registry
-    await environmental_risk_registry.startup()
-    app.state.environmental_risk_registry = environmental_risk_registry
+    await environmental_pipeline_registry.startup()
+    app.state.environmental_pipeline = environmental_pipeline_registry.pipeline
 
     await redis_bus.connect()
     await manager.start_redis_listener()
@@ -28,7 +28,7 @@ async def lifespan(app: FastAPI):
     await manager.stop_redis_listener()
     await redis_bus.disconnect()
     await prediction_registry.shutdown()
-    await environmental_risk_registry.shutdown()
+    await environmental_pipeline_registry.shutdown()
 
 
 app = FastAPI(
@@ -74,7 +74,6 @@ app.include_router(auth.router)
 app.include_router(patient.router)
 app.include_router(doctor.router)
 app.include_router(prediction.router)
-app.include_router(environmental_risk.router)
 app.include_router(surveillance.router)
 app.include_router(clinics.router)
 app.include_router(notifications.router)

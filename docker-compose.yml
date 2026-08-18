@@ -32,8 +32,8 @@ services:
       JWT_EXPIRE_MINUTES: ${JWT_EXPIRE_MINUTES:-60}
       ML_MODE: ${ML_MODE:-mock}
       ML_SERVICE_URL: ${ML_SERVICE_URL:-http://host.docker.internal:8001/predict}
-      ENVIRONMENTAL_RISK_MODE: ${ENVIRONMENTAL_RISK_MODE:-mock}
-      ENVIRONMENTAL_RISK_SERVICE_URL: ${ENVIRONMENTAL_RISK_SERVICE_URL:-http://host.docker.internal:8002/assess}
+      ENVIRONMENTAL_DATA_MODE: ${ENVIRONMENTAL_DATA_MODE:-mock}
+      ENVIRONMENTAL_DATA_SERVICE_URL: ${ENVIRONMENTAL_DATA_SERVICE_URL:-http://host.docker.internal:8002/environmental-data}
       ALERT_RADIUS_KM: ${ALERT_RADIUS_KM:-10}
       APP_ENV: ${APP_ENV:-development}
       FRONTEND_URL: ${FRONTEND_URL:-https://watch-sight.lovable.app}

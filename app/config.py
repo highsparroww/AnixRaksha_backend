@@ -20,10 +20,10 @@ class Settings(BaseSettings):
     ML_MODE: str = "mock"  # mock | external
     ML_SERVICE_URL: str = "http://localhost:8001/predict"
 
-    # Optional environmental-risk model. This is deliberately separate from
-    # symptom prediction: it assesses public-health conditions, not patients.
-    ENVIRONMENTAL_RISK_MODE: str = "mock"  # mock | external
-    ENVIRONMENTAL_RISK_SERVICE_URL: str = "http://localhost:8002/assess"
+    # Internal environmental-data ingestion, intended for future scheduled
+    # model infrastructure. It has no patient-facing API.
+    ENVIRONMENTAL_DATA_MODE: str = "mock"  # mock | external
+    ENVIRONMENTAL_DATA_SERVICE_URL: str = "http://localhost:8002/environmental-data"
 
     ALERT_RADIUS_KM: float = 10.0
 

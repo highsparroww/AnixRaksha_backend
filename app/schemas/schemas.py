@@ -178,29 +178,41 @@ class PredictionResponse(BaseModel):
         return self
 
 
-# ---------- Environmental risk ----------
+# ---------- Internal environmental-model contracts ----------
 
 
-class EnvironmentalRiskFactor(BaseModel):
-    factor: str
-    severity: str
-    reason: str
+class EnvironmentalFeatureSet(BaseModel):
+    """Validated internal features for future disease-risk inference."""
+
+    latitude: float
+    longitude: float
+    observed_at: datetime
+    source: str
+    rainfall_mm_24h: Optional[float] = Field(default=None, ge=0)
+    temperature_c: Optional[float] = None
+    humidity_percent: Optional[float] = Field(default=None, ge=0, le=100)
+    flood_status: Optional[str] = None
+    water_quality_status: Optional[str] = None
+    sanitation_status: Optional[str] = None
+    additional_signals: dict[str, Any] = Field(default_factory=dict)
+    data_status: str = "AVAILABLE"
 
 
-class EnvironmentalRiskResponse(BaseModel):
-    """A public-health risk signal, never an individual diagnosis."""
+class DiseaseRiskExplanation(BaseModel):
+    explanation: str
+    contributing_signals: list[str] = Field(default_factory=list)
+    uncertainty: Optional[str] = None
+    evidence_context: dict[str, Any] = Field(default_factory=dict)
 
+
+class EnvironmentalDiseaseRiskResult(BaseModel):
+    """Internal model output. It is not returned directly to patients."""
+
+    disease: str
     risk_level: AlertSeverity
-    risk_score: float = Field(ge=0, le=1)
-    potential_water_borne_diseases: list[str]
-    potential_vector_borne_diseases: list[str]
-    contributing_factors: list[EnvironmentalRiskFactor]
-    prevention_guidance: list[str]
-    data_status: str
-    assessed_at: datetime
-    disclaimer: str = (
-        "This is an environmental public-health risk assessment, not a disease diagnosis or a notice of an outbreak."
-    )
+    confidence: float = Field(ge=0, le=1)
+    explanation: DiseaseRiskExplanation
+    evaluated_at: datetime
 
 
 # ---------- Clinics ----------

@@ -4,6 +4,7 @@ from app.models.models import (  # noqa: F401
     Doctor,
     DoctorSlot,
     DiseaseCase,
+    EnvironmentalObservation,
     Notification,
     OutbreakAlert,
     Patient,

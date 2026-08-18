@@ -67,13 +67,13 @@ app.dependency_overrides[app_get_db] = _override_get_db
 
 @pytest_asyncio.fixture
 async def client():
-    from app.services.environmental_risk import environmental_risk_registry
+    from app.services.environmental_pipeline import environmental_pipeline_registry
     from app.services.prediction import prediction_registry
 
     await prediction_registry.startup()
     app.state.prediction_registry = prediction_registry
-    await environmental_risk_registry.startup()
-    app.state.environmental_risk_registry = environmental_risk_registry
+    await environmental_pipeline_registry.startup()
+    app.state.environmental_pipeline = environmental_pipeline_registry.pipeline
 
     # Fresh redis connection tied to this test's event loop.
     await redis_bus.connect()
@@ -84,7 +84,7 @@ async def client():
 
     await redis_bus.disconnect()
     await prediction_registry.shutdown()
-    await environmental_risk_registry.shutdown()
+    await environmental_pipeline_registry.shutdown()
 
 
 @pytest_asyncio.fixture
@@ -105,19 +105,19 @@ class ws_app_client:
     """
 
     async def __aenter__(self):
-        from app.services.environmental_risk import environmental_risk_registry
+        from app.services.environmental_pipeline import environmental_pipeline_registry
         from app.services.prediction import prediction_registry
         from app.realtime.websocket import manager
         from httpx_ws.transport import ASGIWebSocketTransport
 
         self._prediction_registry = prediction_registry
-        self._environmental_risk_registry = environmental_risk_registry
+        self._environmental_pipeline_registry = environmental_pipeline_registry
         self._manager = manager
 
         await prediction_registry.startup()
         app.state.prediction_registry = prediction_registry
-        await environmental_risk_registry.startup()
-        app.state.environmental_risk_registry = environmental_risk_registry
+        await environmental_pipeline_registry.startup()
+        app.state.environmental_pipeline = environmental_pipeline_registry.pipeline
 
         await redis_bus.connect()
         await manager.start_redis_listener()
@@ -131,4 +131,4 @@ class ws_app_client:
         await self._manager.stop_redis_listener()
         await redis_bus.disconnect()
         await self._prediction_registry.shutdown()
-        await self._environmental_risk_registry.shutdown()
+        await self._environmental_pipeline_registry.shutdown()

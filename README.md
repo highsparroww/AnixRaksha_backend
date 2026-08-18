@@ -152,38 +152,17 @@ The Compose file defaults to `ML_MODE=mock`. To use the existing external ML
 service, set `ML_MODE=external` and `ML_SERVICE_URL` in your environment (or
 an `.env` file) before starting Compose.
 
-### Environmental-risk model contract
+### Internal environmental-model foundation
 
-Set `ENVIRONMENTAL_RISK_MODE=external` and point
-`ENVIRONMENTAL_RISK_SERVICE_URL` at a service that accepts:
-
-```json
-{ "latitude": 26.45, "longitude": 80.33 }
-```
-
-It must return an environmental (not clinical) assessment such as:
-
-```json
-{
-  "risk_level": "ELEVATED",
-  "risk_score": 0.72,
-  "potential_water_borne_diseases": ["CHOLERA", "TYPHOID"],
-  "potential_vector_borne_diseases": ["MALARIA"],
-  "contributing_factors": [
-    {"factor": "FLOODING", "severity": "HIGH", "reason": "Recent flooding"},
-    {"factor": "OPEN_SEWAGE", "severity": "ELEVATED", "reason": "Sanitation hazard"}
-  ],
-  "prevention_guidance": ["Use treated water", "Avoid standing water"],
-  "data_status": "LIVE_ENVIRONMENTAL_MODEL"
-}
-```
-
-`GET /api/v1/environmental-risk/me` sends the signed-in patient's saved
-coordinates to that model. Elevated, high, and critical responses create an
-in-app notification and a realtime `NOTIFICATION` event, with a 24-hour
-duplicate guard. The model should source and validate weather, flood,
-water-body, and sanitation data; WaterWatch does not infer those conditions
-from patient records.
+Environmental data is internal model infrastructure, not a patient-facing
+assessment. `EnvironmentalPipeline` separates external data ingestion,
+normalization/validation, persisted feature observations, and a replaceable
+disease-risk model interface with explainable result contracts. Configure an
+external provider with `ENVIRONMENTAL_DATA_MODE=external` and
+`ENVIRONMENTAL_DATA_SERVICE_URL`; it receives latitude/longitude and returns
+environmental source data such as rainfall, temperature, humidity, flood,
+water-quality, and sanitation signals. No environmental values or inferred
+risk result is exposed directly through a patient API.
 
 The API is then live at `http://localhost:8000`, with interactive docs at
 `/docs` and `/redoc`, and the raw schema at `/openapi.json`.
@@ -267,7 +246,6 @@ All responses use a consistent envelope:
 - `POST/PUT /api/v1/doctor/cases` (patient_id is **nullable** — unregistered/walk-in patients supported)
 - `GET /api/v1/doctor/surveillance`
 - `GET /api/v1/predictions/{id}` — prediction retrieval; `POST /api/v1/patient/symptoms` is the single symptom-to-prediction workflow
-- `GET /api/v1/environmental-risk/me` — an environmental ML risk assessment for the signed-in patient's saved area; elevated risk sends one in-app/WebSocket notification per 24 hours
 - `GET /api/v1/surveillance/nearby|map|activity|outbreaks` — all PostGIS-backed (`ST_DWithin`/`ST_Distance`); `nearby` returns aggregate counts only and `map` returns coarse cells only
 - `GET /api/v1/clinics/nearby`
 - `GET /api/v1/notifications`, `PATCH /api/v1/notifications/{id}/read`, `PATCH /api/v1/notifications/read-all`
@@ -288,12 +266,11 @@ All responses use a consistent envelope:
 - **Symptom-checker guidance**: every prediction includes general,
   disease-specific prevention precautions. It remains educational guidance,
   not personalised medical advice or a confirmed diagnosis.
-- **Environmental risk alerts**: an optional external ML endpoint can assess
-  weather/flood, nearby-water-body, and sanitation signals for a patient's
-  area. These alerts distinguish potential water-borne disease from
-  mosquito-borne risk (such as malaria), are not diagnoses, and include
-  general prevention guidance. `mock` mode deliberately reports that no live
-  environmental data is available rather than fabricating a risk.
+- **Environmental model foundation**: environmental observations are stored as
+  internal, validated model features. The replaceable risk-model contract can
+  later return disease-specific confidence, uncertainty, evidence context, and
+  contributing signals; it currently uses a no-op implementation and creates
+  no patient-facing environmental assessment or alert.
 - **Outbreak detection**: a transparent, configurable heuristic (see
   `OUTBREAK_*` settings in `config.py`) comparing the current 7-day case
   count and growth rate against previous 7 days, within `ALERT_RADIUS_KM`.
