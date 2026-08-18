@@ -38,6 +38,24 @@ Surveillance
   → delivers in-app notifications and real-time WebSocket events
 ```
 
+### Appointment workflow
+
+```text
+Patient
+  → symptom assessment
+  → risk / guidance
+  → chooses “Talk to a doctor”
+  → chooses a doctor and an available slot
+  → confirms the booking
+  → appointment is created
+  → optionally shares the structured symptoms relevant to that assessment
+     with that doctor for that appointment only
+```
+
+The shared information is an immutable appointment snapshot. Later changes to
+the patient’s intake do not alter what the doctor received, and the doctor
+cannot browse the patient’s other assessments or conversational UI state.
+
 ### Health-data privacy
 
 - Conversational UI state is temporary; the backend persists structured intake

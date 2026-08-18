@@ -25,6 +25,12 @@ async def book_appointment(
 
     slot.status = SlotStatus.BOOKED.value
     intake = None
+    if share_health_summary and not health_intake_id:
+        raise AppError(
+            status.HTTP_422_UNPROCESSABLE_ENTITY,
+            "HEALTH_INTAKE_REQUIRED",
+            "Select the assessment to share when sharing health information",
+        )
     if health_intake_id:
         intake = (await db.execute(select(HealthIntake).where(
             HealthIntake.id == health_intake_id, HealthIntake.patient_id == patient.id

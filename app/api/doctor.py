@@ -16,8 +16,6 @@ from app.models.models import (
     DiseaseCase,
     Notification,
     Patient,
-    Prediction,
-    SymptomSubmission,
     User,
 )
 from app.schemas.schemas import (
@@ -187,26 +185,6 @@ async def get_appointment_detail(
     patient_user = (await db.execute(select(User).where(User.id == patient.user_id))).scalar_one()
     slot = (await db.execute(select(DoctorSlot).where(DoctorSlot.id == appointment.slot_id))).scalar_one_or_none()
 
-    latest_submission = (
-        await db.execute(
-            select(SymptomSubmission)
-            .where(SymptomSubmission.patient_id == patient.id)
-            .order_by(SymptomSubmission.created_at.desc())
-            .limit(1)
-        )
-    ).scalar_one_or_none()
-
-    latest_prediction = (
-        await db.execute(
-            select(Prediction)
-            .where(Prediction.patient_id == patient.id)
-            .order_by(Prediction.created_at.desc())
-            .limit(1)
-        )
-    ).scalar_one_or_none()
-
-    from app.schemas.schemas import PredictionResponse
-
     detail = AppointmentDetailResponse(
         id=appointment.id,
         patient_id=appointment.patient_id,
@@ -219,12 +197,6 @@ async def get_appointment_detail(
         patient_name=patient_user.full_name,
         patient_age=patient.age,
         patient_gender=patient.gender,
-        latest_symptoms=latest_submission.symptoms if latest_submission else None,
-        duration_hours=latest_submission.duration_hours if latest_submission else None,
-        temperature=latest_submission.temperature if latest_submission else None,
-        severity=latest_submission.severity if latest_submission else None,
-        patient_notes=latest_submission.notes if latest_submission else None,
-        prediction=PredictionResponse.model_validate(latest_prediction) if latest_prediction else None,
         slot=SlotResponse.model_validate(slot) if slot else None,
         health_summary_snapshot=appointment.health_summary_snapshot,
     )

@@ -44,15 +44,20 @@ async def test_patient_books_appointment_and_doctor_sees_pretest_info(client):
     patient = await register_patient(client, email="appt-patient@test.dev")
     patient_headers = auth_headers(patient["access_token"])
 
-    await client.post(
-        "/api/v1/patient/symptoms",
-        json={"symptoms": ["DIARRHEA", "VOMITING"], "duration_hours": 24, "temperature": 38.5, "severity": "SEVERE"},
+    conversation = await client.post(
+        "/api/v1/patient/health-conversations",
+        json={"structured_data": {"symptoms": ["DIARRHEA", "VOMITING"], "duration_hours": 24, "severity": "SEVERE"}},
         headers=patient_headers,
     )
+    assert conversation.status_code == 201
+    intake_id = conversation.json()["data"]["health_intake_id"]
 
     resp = await client.post(
         "/api/v1/patient/appointments",
-        json={"doctor_id": slot["doctor_id"], "slot_id": slot["id"], "reason": "Feeling unwell"},
+        json={
+            "doctor_id": slot["doctor_id"], "slot_id": slot["id"], "reason": "Feeling unwell",
+            "health_intake_id": intake_id, "share_health_summary": True,
+        },
         headers=patient_headers,
     )
     assert resp.status_code == 201, resp.text
@@ -62,9 +67,11 @@ async def test_patient_books_appointment_and_doctor_sees_pretest_info(client):
     assert resp.status_code == 200
     detail = resp.json()["data"]
     assert detail["patient_name"] == "Test Patient"
-    assert detail["latest_symptoms"] == ["DIARRHEA", "VOMITING"]
-    assert detail["severity"] == "SEVERE"
-    assert detail["prediction"] is not None
+    assert detail["health_summary_shared"] is True
+    assert detail["health_summary_snapshot"]["structured_data"]["symptoms"] == ["DIARRHEA", "VOMITING"]
+    assert detail["health_summary_snapshot"]["structured_data"]["severity"] == "SEVERE"
+    assert detail["latest_symptoms"] is None
+    assert detail["prediction"] is None
 
 
 @pytest.mark.asyncio
