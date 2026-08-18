@@ -164,17 +164,17 @@ environmental source data such as rainfall, temperature, humidity, flood,
 water-quality, and sanitation signals. No environmental values or inferred
 risk result is exposed directly through a patient API.
 
-### Government forecasting foundation
+### Forecasting foundation
 
 The backend now provides a data and publication boundary for future
-government-facing outbreak forecasting. It does **not** contain a forecasting
+automatic outbreak forecasting. It does **not** contain a forecasting
 model yet and does not fabricate predicted risk.
 
 ```text
 Aggregate early signals
 (symptom aggregates, wastewater, environmental observations, lab samples)
         ↓
-Government-only signal collection
+Automatic provider ingestion
         ↓
 Future forecasting model integration
         ↓
@@ -183,8 +183,8 @@ Automatic forecast publication
         └─ location-based patient notification
 ```
 
-Government/admin users can submit aggregate, non-patient-identifying signals
-through `POST /api/v1/government/signals`. The future model integration calls
+Future data providers can submit aggregate, non-patient-identifying signals
+without a manual dashboard. The future model integration calls
 `publish_forecast(...)` to persist an active forecast and notify patients in
 the forecast area automatically. The UI reads the separate predicted-risk
 layer from `GET /api/v1/surveillance/forecast-map`.

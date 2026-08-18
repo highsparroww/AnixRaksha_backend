@@ -5,9 +5,6 @@ class UserRole(str, enum.Enum):
     PATIENT = "PATIENT"
     DOCTOR = "DOCTOR"
     ADMIN = "ADMIN"
-    GOVERNMENT = "GOVERNMENT"
-
-
 class SurveillanceSignalType(str, enum.Enum):
     SYMPTOM_AGGREGATE = "SYMPTOM_AGGREGATE"
     WASTEWATER = "WASTEWATER"

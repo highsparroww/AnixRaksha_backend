@@ -5,7 +5,7 @@ from fastapi.exceptions import RequestValidationError
 from fastapi.middleware.cors import CORSMiddleware
 from fastapi.responses import JSONResponse
 
-from app.api import auth, clinics, dev, doctor, government, health, notifications, patient, prediction, surveillance, ws
+from app.api import auth, clinics, dev, doctor, health, notifications, patient, prediction, surveillance, ws
 from app.config import settings
 from app.realtime.redis_bus import redis_bus
 from app.realtime.websocket import manager
@@ -73,7 +73,6 @@ app.include_router(health.router)
 app.include_router(auth.router)
 app.include_router(patient.router)
 app.include_router(doctor.router)
-app.include_router(government.router)
 app.include_router(prediction.router)
 app.include_router(surveillance.router)
 app.include_router(clinics.router)
